@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  producer:
+    build:
+      context: ./services/producer
+    environment:
+      - KAFKA_BROKER=${KAFKA_BROKER}
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+    ports:
+      - "${PRODUCER_PORT}:8080"
+    depends_on:
+      - kafka
+      - postgres
+    networks:
+      - osiris_network
+
+  consumer:
+    build:
+      context: ./services/consumer
+    environment:
+      - KAFKA_BROKER=${KAFKA_BROKER}
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+    ports:
+      - "${CONSUMER_PORT}:8080"
+    depends_on:
+      - kafka
+      - postgres
+    networks:
+      - osiris_network
+
+  client:
+    build:
+      context: ./client
+    ports:
+      - "${CLIENT_PORT}:3000"
+    environment:
+      - API_URL=http://localhost:${PRODUCER_PORT}
+    networks:
+      - osiris_network
+
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - '5432:5432'
+    networks:
+      - osiris_network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:${ZOOKEEPER_PORT}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://${KAFKA_BROKER}
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
+    networks:
+      - osiris_network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_PORT}
+    networks:
+      - osiris_network
+
+networks:
+  osiris_network:
+
+volumes:
+  postgres_data:
